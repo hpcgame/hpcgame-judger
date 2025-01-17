@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: judger-templates
+  namespace: hpcgame-judger-system
+data:
+  namespace.yaml: |
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: {{ .Namespace }}
+      labels:
+        lxcfs.lcpu.dev/inject: "conditional"
+        ssh-operator.lcpu.dev/inject: "conditional"
