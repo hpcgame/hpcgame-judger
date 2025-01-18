@@ -3,6 +3,7 @@ package manager
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 )
@@ -13,6 +14,10 @@ func (m *Manager) loadTemplates() error {
 	if err != nil {
 		return err
 	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
 
 	var files []string
 	for _, entry := range entries {

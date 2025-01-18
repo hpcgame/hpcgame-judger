@@ -237,6 +237,21 @@ func (s *JudgeSession) watchJobTillReady() error {
 	}
 	defer watcher.Stop()
 
+	// Check for status, in case it's already running
+	job, err := s.m.kc.Client().BatchV1().Jobs(s.GetNamespaceName()).Get(context.TODO(), jobName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if job.Status.Active > 0 {
+		if job.Status.Ready != nil && *job.Status.Ready > 0 {
+			return nil
+		}
+	}
+	if job.Status.Succeeded > 0 || job.Status.Failed > 0 {
+		return nil
+	}
+	log.Println("Job not ready yet", s.GetNamespaceName())
+
 	// Wait for the job to start running
 	for {
 		select {
@@ -255,6 +270,9 @@ func (s *JudgeSession) watchJobTillReady() error {
 				if job.Status.Ready != nil && *job.Status.Ready > 0 {
 					return nil
 				}
+			}
+			if job.Status.Succeeded > 0 || job.Status.Failed > 0 {
+				return nil
 			}
 
 			if event.Type != watch.Added && event.Type != watch.Modified {

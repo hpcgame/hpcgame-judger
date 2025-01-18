@@ -80,3 +80,7 @@ func (c *Client) Host() string {
 func (c *Client) SecretManager() *utils.SecretManager {
 	return c.sm
 }
+
+func (c *Client) Namespace() string {
+	return c.sm.GetNamespace()
+}

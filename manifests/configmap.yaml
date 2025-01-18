@@ -4,7 +4,7 @@ metadata:
   name: judger-templates
   namespace: hpcgame-judger-system
 data:
-  namespace.yaml: |
+  00_namespace.yaml: |
     apiVersion: v1
     kind: Namespace
     metadata:
@@ -12,3 +12,52 @@ data:
       labels:
         lxcfs.lcpu.dev/inject: "conditional"
         ssh-operator.lcpu.dev/inject: "conditional"
+  01_pvc.yaml: |
+    {{- if .Variables.pvcStorageName }}
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: {{ .Variables.pvcStorageName }}
+      namespace: {{ .Namespace }}
+    spec:
+      accessModes:
+        - ReadWriteMany
+      resources:
+        requests:
+          storage: {{ .Variables.pvcStorageSize }}
+      storageClassName: {{ .Variables.pvcStorageClass }}
+    {{- end }}
+  02_service_account.yaml: |
+    {{- if .Variables.serviceAccountName }}
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: {{ .Variables.serviceAccountName }}
+      namespace: {{ .Namespace }}
+
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: admin-role
+      namespace: {{ .Namespace }}
+    rules:
+      - apiGroups: ["*"]
+        resources: ["*"]
+        verbs: ["*"]
+
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: admin-role-binding
+      namespace: {{ .Namespace }}
+    subjects:
+      - kind: ServiceAccount
+        name: {{ .Variables.serviceAccountName }}
+        namespace: {{ .Namespace }}
+    roleRef:
+      kind: Role
+      name: admin-role
+      apiGroup: rbac.authorization.k8s.io
+    {{- end }}

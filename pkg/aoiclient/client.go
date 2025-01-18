@@ -2,7 +2,6 @@ package aoiclient
 
 import (
 	"context"
-	"crypto/tls"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -15,8 +14,7 @@ type Client struct {
 
 func New(addr string) *Client {
 	return &Client{
-		r: resty.New().SetBaseURL(addr).SetHeader("User-Agent", DefaultUA).
-			SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true}),
+		r: resty.New().SetBaseURL(addr).SetHeader("User-Agent", DefaultUA),
 	}
 }
 
