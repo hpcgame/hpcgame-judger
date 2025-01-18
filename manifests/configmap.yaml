@@ -75,3 +75,11 @@ data:
       name: admin-role
       apiGroup: rbac.authorization.k8s.io
     {{- end }}
+  03_local_queue.yaml: |
+    apiVersion: kueue.x-k8s.io/v1beta1
+    kind: LocalQueue
+    metadata:
+      name: default
+      namespace: {{ .Namespace }}
+    spec:
+      clusterQueue: judge-queue
