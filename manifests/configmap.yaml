@@ -12,6 +12,19 @@ data:
       labels:
         lxcfs.lcpu.dev/inject: "conditional"
         ssh-operator.lcpu.dev/inject: "conditional"
+
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: judge
+      namespace: {{ .Namespace }}
+    spec:
+      selector:
+        job-name: judge
+      ports:
+        - protocol: TCP
+          port: 23456
   01_pvc.yaml: |
     {{- if .Variables.pvcStorageName }}
     apiVersion: v1
