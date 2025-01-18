@@ -101,3 +101,14 @@ func PodLogs(pod string) (io.ReadCloser, error) {
 		Follow: true,
 	}).Stream(BgCtx())
 }
+
+func JobSuccessOrNot(job string) (bool, error) {
+	c := Kube().Client()
+
+	jobObj, err := c.BatchV1().Jobs(NS()).Get(BgCtx(), job, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	return jobObj.Status.Succeeded > 0, nil
+}

@@ -12,6 +12,7 @@ data:
       labels:
         lxcfs.lcpu.dev/inject: "conditional"
         ssh-operator.lcpu.dev/inject: "conditional"
+        hpcgame.pku.edu.cn/kind: "judge"
 
     ---
     apiVersion: v1

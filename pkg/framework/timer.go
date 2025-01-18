@@ -2,6 +2,7 @@ package framework
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -28,12 +29,12 @@ func (s *timerServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, err := time.Parse(time.RFC3339Nano, ts)
-
+	tI64, err := strconv.ParseInt(ts, 10, 64)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	t := time.Unix(0, tI64)
 
 	if time.Now().Sub(t).Abs() > maxTimeDelta {
 		http.Error(w, "time is too far in the past or future", http.StatusBadRequest)
