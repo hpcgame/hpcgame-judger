@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/lcpu-club/hpcgame-judger/internal/kube"
 	"github.com/lcpu-club/hpcgame-judger/internal/utils"
+	"github.com/lcpu-club/hpcgame-judger/pkg/judgerproto"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +48,21 @@ func NS() string {
 	return Kube().Namespace()
 }
 
-func WaitJobAndGetPods(job string) ([]string, error) {
+func calcReadyAndFinishedPods(job batchv1.JobStatus) int {
+	ready := 0
+	if job.Ready != nil {
+		ready = int(*job.Ready)
+	}
+	// active := int(job.Active)
+	finished := int(job.Succeeded + job.Failed)
+	terminating := 0
+	if job.Terminating != nil {
+		terminating = int(*job.Terminating)
+	}
+	return ready + finished + terminating
+}
+
+func WaitJobAndGetPods(job string, requiredPods int) ([]string, error) {
 	c := Kube().Client()
 
 	watcher, err := c.BatchV1().Jobs(NS()).Watch(BgCtx(), metav1.ListOptions{
@@ -57,25 +73,45 @@ func WaitJobAndGetPods(job string) ([]string, error) {
 	}
 	defer watcher.Stop()
 
+	state, err := c.BatchV1().Jobs(NS()).Get(BgCtx(), job, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	if calcReadyAndFinishedPods(state.Status) >= requiredPods {
+		pods, err := c.CoreV1().Pods(NS()).List(BgCtx(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("job-name=%s", job),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		var podNames []string
+
+		for _, pod := range pods.Items {
+			podNames = append(podNames, pod.Name)
+		}
+
+		return podNames, nil
+	}
+
 	for {
 		select {
 		case event, ok := <-watcher.ResultChan():
-			if !ok {
-				return nil, fmt.Errorf("watcher channel closed unexpectedly")
-			}
+			{
+				if !ok {
+					return nil, fmt.Errorf("watcher channel closed unexpectedly")
+				}
 
-			job, ok := event.Object.(*batchv1.Job)
-			if !ok {
-				continue
-			}
+				job, ok := event.Object.(*batchv1.Job)
+				if !ok {
+					continue
+				}
 
-			if event.Type != watch.Added && event.Type != watch.Modified {
-				return nil, fmt.Errorf("job not running: %s", job.Status.String())
-			}
+				if event.Type != watch.Added && event.Type != watch.Modified {
+					return nil, fmt.Errorf("job not running: %s", job.Status.String())
+				}
 
-			if job.Status.Active > 0 {
-				if (job.Status.Ready != nil && *job.Status.Ready > 0) ||
-					job.Status.Succeeded > 0 || job.Status.Failed > 0 {
+				if calcReadyAndFinishedPods(job.Status) >= requiredPods {
 					pods, err := c.CoreV1().Pods(NS()).List(BgCtx(), metav1.ListOptions{
 						LabelSelector: fmt.Sprintf("job-name=%s", job.Name),
 					})
@@ -111,15 +147,30 @@ func JobSuccessOrNot(job string) (bool, error) {
 		return false, err
 	}
 
+	judgerproto.NewLogMessage(fmt.Sprintf("Job status: %#v", jobObj.Status)).Print()
+
 	return jobObj.Status.Failed == 0, nil
 }
 
-func WaitJobFinishAndGetOutput(job string) (output []string, success bool, err error) {
-	pods, err := WaitJobAndGetPods(job)
+func PodSuccessOrNot(pod string) (bool, error) {
+	c := Kube().Client()
+
+	WaitTill(func() (*corev1.Pod, error) {
+		return c.CoreV1().Pods(NS()).Get(BgCtx(), pod, metav1.GetOptions{})
+	}, func(p *corev1.Pod) bool {
+		return p.Status.Phase != corev1.PodRunning
+	}, 10, 50*time.Millisecond)
+	podObj, err := c.CoreV1().Pods(NS()).Get(BgCtx(), pod, metav1.GetOptions{})
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
 
+	judgerproto.NewLogMessage(fmt.Sprintf("Pob status: %s", Must(json.Marshal(podObj.Status)))).Print()
+
+	return podObj.Status.Phase == corev1.PodSucceeded, nil
+}
+
+func WaitPods(pods []string) (output []string, success bool, err error) {
 	for _, pod := range pods {
 		logs, err := PodLogs(pod)
 		if err != nil {
@@ -136,7 +187,25 @@ func WaitJobFinishAndGetOutput(job string) (output []string, success bool, err e
 		output = append(output, buf.String())
 	}
 
-	success, err = JobSuccessOrNot(job)
+	for _, pod := range pods {
+		success, err = PodSuccessOrNot(pod)
+		if err != nil {
+			return nil, false, err
+		}
 
-	return output, success, err
+		if !success {
+			return output, false, nil
+		}
+	}
+
+	return output, true, err
+}
+
+func WaitJobFinish(job string, requiredPods int) (output []string, success bool, err error) {
+	pods, err := WaitJobAndGetPods(job, requiredPods)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return WaitPods(pods)
 }

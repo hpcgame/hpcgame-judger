@@ -117,7 +117,7 @@ func (s *JudgeSession) Close() {
 
 func (s *JudgeSession) Run() error {
 	if ok, err := s.tryLock(); !ok || err != nil {
-		return err
+		return wrapError("tryLock", err)
 	}
 
 	go s.lockLoop()

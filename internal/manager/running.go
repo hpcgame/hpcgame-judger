@@ -29,12 +29,12 @@ func (s *JudgeSession) run() error {
 
 	err := s.ensureNamespacePresence()
 	if err != nil {
-		return err
+		return wrapError("ensureNamespacePresence", err)
 	}
 
 	err = s.ensureJobPresence()
 	if err != nil {
-		return err
+		return wrapError("ensureJobPresence", err)
 	}
 
 	return s.watchJob()
@@ -296,7 +296,7 @@ func (s *JudgeSession) watchJobTillReady() error {
 func (s *JudgeSession) watchJob() error {
 	err := s.watchJobTillReady()
 	if err != nil {
-		return err
+		return wrapError("waitJobTillReady", err)
 	}
 
 	log.Println("Job started running", s.GetNamespaceName())
