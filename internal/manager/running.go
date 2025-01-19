@@ -37,7 +37,7 @@ func (s *JudgeSession) run() error {
 		return wrapError("ensureJobPresence", err)
 	}
 
-	return s.watchJob()
+	return wrapError("watchJob", s.watchJob())
 }
 
 func (s *JudgeSession) GetNamespaceName() string {
@@ -233,6 +233,20 @@ func (s *JudgeSession) runningCleanup() {
 	}
 }
 
+func calcReadyAndFinishedPods(job batchv1.JobStatus) int {
+	ready := 0
+	if job.Ready != nil {
+		ready = int(*job.Ready)
+	}
+	// active := int(job.Active)
+	finished := int(job.Succeeded + job.Failed)
+	terminating := 0
+	if job.Terminating != nil {
+		terminating = int(*job.Terminating)
+	}
+	return ready + finished + terminating
+}
+
 const watchJobTimeout = 10 * time.Minute
 
 func (s *JudgeSession) watchJobTillReady() error {
@@ -257,6 +271,9 @@ func (s *JudgeSession) watchJobTillReady() error {
 		}
 	}
 	if job.Status.Succeeded > 0 || job.Status.Failed > 0 {
+		return nil
+	}
+	if calcReadyAndFinishedPods(job.Status) > 0 {
 		return nil
 	}
 	log.Println("Job not ready yet", s.GetNamespaceName())
@@ -304,17 +321,17 @@ func (s *JudgeSession) watchJob() error {
 	// Get the timestamp before starting the log pulling loop
 	since, err := s.getProcessedTimestamp()
 	if err != nil {
-		return err
+		return wrapError("getProcessedTimestamp", err)
 	}
 
 	// Start the log pulling loop
-	return s.pullJobLogs(since)
+	return wrapError("pullJobLogs", s.pullJobLogs(since))
 }
 
 func (s *JudgeSession) pullJobLogs(since *time.Time) error {
 	reader, err := s.getPodLogsOfJob(true, since)
 	if err != nil {
-		return err
+		return wrapError("getPodLogsOfJob", err)
 	}
 	defer reader.Close()
 
@@ -337,13 +354,13 @@ func (s *JudgeSession) pullJobLogs(since *time.Time) error {
 		log.Printf("Action: %s", lineStr)
 		err = s.processMessage(lineStr)
 		if err != nil {
-			return err
+			return wrapError("processMessage", err)
 		}
 
 		// Update the processed timestamp
 		now := time.Now()
 		if err := s.updateProcessedTimestamp(&now); err != nil {
-			return err
+			return wrapError("updateProcessedTimestamp", err)
 		}
 	}
 

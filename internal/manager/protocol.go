@@ -40,7 +40,7 @@ func (s *JudgeSession) processMessage(msg string) error {
 		{
 			err := s.aoi.Complete(context.TODO())
 			if err != nil {
-				return err
+				return wrapError("aoiComplete", err)
 			}
 		}
 	case judgerproto.ActionQuit:
@@ -57,7 +57,7 @@ func (s *JudgeSession) processMessage(msg string) error {
 
 			err = s.aoi.Patch(context.TODO(), (*aoiclient.SolutionInfo)(&body))
 			if err != nil {
-				return err
+				return wrapError("aoiPatch", err)
 			}
 		}
 	case judgerproto.ActionDetail:
@@ -65,12 +65,12 @@ func (s *JudgeSession) processMessage(msg string) error {
 			var body judgerproto.DetailBody
 			err := json.Unmarshal(m.Body, &body)
 			if err != nil {
-				return err
+				return wrapError("unmarshalDetail", err)
 			}
 
 			err = s.aoi.SaveDetails(context.TODO(), (*aoiclient.SolutionDetails)(&body))
 			if err != nil {
-				return err
+				return wrapError("aoiSaveDetails", err)
 			}
 		}
 	case judgerproto.ActionNoop:
