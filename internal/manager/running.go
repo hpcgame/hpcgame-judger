@@ -288,7 +288,7 @@ func (s *JudgeSession) watchJobTillReady() error {
 				return fmt.Errorf("job not running: %s", job.Status.String())
 			}
 		case <-time.After(watchJobTimeout):
-			return fmt.Errorf("timed out waiting for job to be ready")
+			return fmt.Errorf("timed out waiting for job %s to be ready", job)
 		}
 	}
 }

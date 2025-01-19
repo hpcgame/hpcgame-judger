@@ -92,7 +92,7 @@ func WaitJobAndGetPods(job string) ([]string, error) {
 				}
 			}
 		case <-time.After(5 * time.Minute):
-			return nil, fmt.Errorf("timed out waiting for job to start")
+			return nil, fmt.Errorf("timed out waiting for job %s to start", job)
 		}
 	}
 }
