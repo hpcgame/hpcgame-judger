@@ -21,7 +21,7 @@ func WaitTill[T any](f func() (T, error), cond func(T) bool, max int, coolDown t
 			return val, nil
 		}
 		time.Sleep(coolDown)
-		myCoolDown = expCoolDown(myCoolDown, 16*coolDown)
+		myCoolDown = expCoolDown(myCoolDown, 8*coolDown)
 	}
 	return f()
 }

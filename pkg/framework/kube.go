@@ -1,7 +1,6 @@
 package framework
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -155,17 +154,14 @@ func JobSuccessOrNot(job string) (bool, error) {
 func PodSuccessOrNot(pod string) (bool, error) {
 	c := Kube().Client()
 
-	WaitTill(func() (*corev1.Pod, error) {
+	podObj, err := WaitTill(func() (*corev1.Pod, error) {
 		return c.CoreV1().Pods(NS()).Get(BgCtx(), pod, metav1.GetOptions{})
 	}, func(p *corev1.Pod) bool {
 		return p.Status.Phase != corev1.PodRunning
-	}, 10, 50*time.Millisecond)
-	podObj, err := c.CoreV1().Pods(NS()).Get(BgCtx(), pod, metav1.GetOptions{})
+	}, 48, 350*time.Millisecond)
 	if err != nil {
 		return false, err
 	}
-
-	judgerproto.NewLogMessage(fmt.Sprintf("Pob status: %s", Must(json.Marshal(podObj.Status)))).Print()
 
 	return podObj.Status.Phase == corev1.PodSucceeded, nil
 }
