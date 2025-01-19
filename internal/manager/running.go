@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const nsPrefix = "j-"
@@ -98,7 +99,15 @@ func (s *JudgeSession) deleteNamespace() error {
 	}
 
 	log.Println("Deleted namespace", s.GetNamespaceName())
-	return err
+
+	clusterRoleBindingName := fmt.Sprintf("%s-judge-binding", s.GetNamespaceName())
+	err = s.m.kc.Client().RbacV1().
+		ClusterRoleBindings().Delete(context.TODO(), clusterRoleBindingName, metav1.DeleteOptions{})
+	if client.IgnoreNotFound(err) != nil {
+		log.Println("Failed to delete cluster role binding:", err)
+	}
+
+	return nil
 }
 
 func (s *JudgeSession) GetJobName() string {

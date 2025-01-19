@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/lcpu-club/hpcgame-judger/internal/kube"
@@ -110,5 +111,32 @@ func JobSuccessOrNot(job string) (bool, error) {
 		return false, err
 	}
 
-	return jobObj.Status.Succeeded > 0, nil
+	return jobObj.Status.Failed == 0, nil
+}
+
+func WaitJobFinishAndGetOutput(job string) (output []string, success bool, err error) {
+	pods, err := WaitJobAndGetPods(job)
+	if err != nil {
+		return nil, false, err
+	}
+
+	for _, pod := range pods {
+		logs, err := PodLogs(pod)
+		if err != nil {
+			return nil, false, err
+		}
+		defer logs.Close()
+
+		buf := new(strings.Builder)
+		_, err = io.Copy(buf, logs)
+		if err != nil {
+			return nil, false, err
+		}
+
+		output = append(output, buf.String())
+	}
+
+	success, err = JobSuccessOrNot(job)
+
+	return output, success, err
 }

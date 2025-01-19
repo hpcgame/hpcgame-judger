@@ -1,6 +1,9 @@
 package framework
 
-import "sync"
+import (
+	"reflect"
+	"sync"
+)
 
 type Iterable[T any] interface {
 	Len() int
@@ -17,7 +20,29 @@ func (s Slice[T]) Idx(i int) T {
 	return s[i]
 }
 
-type Point interface {
+func FormSlice[T any](s ...T) Slice[T] {
+	return Slice[T](s)
+}
+
+func Last[T any](s []T) T {
+	return s[len(s)-1]
+}
+
+type JudgePoint interface{}
+
+func Pnt[P JudgePoint](values ...any) P {
+	v := reflect.New(reflect.TypeOf((*P)(nil)).Elem()).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Type().Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		if i >= len(values) {
+			break
+		}
+		v.Field(i).Set(reflect.ValueOf(values[i]))
+	}
+	return v.Interface().(P)
 }
 
 type Fuser interface {
@@ -60,20 +85,20 @@ type JudgeMsg interface {
 	PointScale() int
 }
 
-type MultiPointJudger[P Point, M any] interface {
+type MultiPointJudger[P JudgePoint, M any] interface {
 	Before(Fuser) error
 	Judge(P, Fuser) (M, error)
 	Report([]M) error
 	After([]M) error
 }
 
-type MultiPointRunner[P Point, M any] struct {
+type MultiPointRunner[P JudgePoint, M any] struct {
 	j MultiPointJudger[P, M]
 
 	parallel int
 }
 
-func MultiPoint[P Point, M any](j MultiPointJudger[P, M]) *MultiPointRunner[P, M] {
+func MultiPoint[P JudgePoint, M any](j MultiPointJudger[P, M]) *MultiPointRunner[P, M] {
 	return &MultiPointRunner[P, M]{j: j}
 }
 

@@ -1,5 +1,7 @@
 package framework
 
+import "sync"
+
 type ThreadPool struct {
 	jobs     []func()
 	workers  []chan func()
@@ -22,16 +24,20 @@ func (tp *ThreadPool) Add(job func()) {
 }
 
 func (tp *ThreadPool) Run() {
+	wg := &sync.WaitGroup{}
+
 	for i := range tp.workers {
 		tp.workers[i] = make(chan func())
 		go func(worker chan func()) {
 			for job := range worker {
 				job()
+				wg.Done()
 			}
 		}(tp.workers[i])
 	}
 
 	for i := range tp.jobs {
+		wg.Add(1)
 		select {
 		case <-tp.cancelCh:
 			return
@@ -46,6 +52,7 @@ func (tp *ThreadPool) Run() {
 		close(tp.workers[i])
 	}
 
+	wg.Wait()
 	close(tp.finCh)
 }
 

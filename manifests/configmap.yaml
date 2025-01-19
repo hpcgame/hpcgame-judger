@@ -13,6 +13,7 @@ data:
         lxcfs.lcpu.dev/inject: "conditional"
         ssh-operator.lcpu.dev/inject: "conditional"
         hpcgame.pku.edu.cn/kind: "judge"
+        kueue.x-k8s.io/managed-namespace: "true"
 
     ---
     apiVersion: v1
@@ -74,6 +75,22 @@ data:
       kind: Role
       name: admin-role
       apiGroup: rbac.authorization.k8s.io
+
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: {{ .Namespace }}-judge-binding
+      # namespace: {{ .Namespace }}
+    subjects:
+      - kind: ServiceAccount
+        name: {{ .Variables.serviceAccountName }}
+        namespace: {{ .Namespace }}
+    roleRef:
+      kind: ClusterRole
+      name: judger-role
+      apiGroup: rbac.authorization.k8s.io
+
     {{- end }}
   03_local_queue.yaml: |
     apiVersion: kueue.x-k8s.io/v1beta1
