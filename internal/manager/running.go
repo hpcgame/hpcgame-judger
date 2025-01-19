@@ -247,7 +247,7 @@ func calcReadyAndFinishedPods(job batchv1.JobStatus) int {
 	return ready + finished + terminating
 }
 
-const watchJobTimeout = 10 * time.Minute
+const watchJobTimeout = 20 * time.Minute
 
 func (s *JudgeSession) watchJobTillReady() error {
 	jobName := s.GetJobName()
