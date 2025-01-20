@@ -133,6 +133,20 @@ func WaitJobAndGetPods(job string, requiredPods int) ([]string, error) {
 }
 
 func PodLogs(pod string) (io.ReadCloser, error) {
+	_, err := WaitTill(func() (*corev1.Pod, error) {
+		return Kube().Client().CoreV1().Pods(NS()).Get(BgCtx(), pod, metav1.GetOptions{})
+	}, func(p *corev1.Pod) bool {
+		for _, ctr := range p.Status.ContainerStatuses {
+			if ctr.Started == nil || !*ctr.Started {
+				return false
+			}
+		}
+		return true
+	}, 48, 200*time.Millisecond)
+	if err != nil {
+		return nil, err
+	}
+
 	return Kube().Client().CoreV1().Pods(NS()).GetLogs(pod, &corev1.PodLogOptions{
 		Follow: true,
 	}).Stream(BgCtx())
