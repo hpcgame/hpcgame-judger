@@ -133,23 +133,35 @@ func WaitJobAndGetPods(job string, requiredPods int) ([]string, error) {
 }
 
 func PodLogs(pod string) (io.ReadCloser, error) {
-	_, err := WaitTill(func() (*corev1.Pod, error) {
-		return Kube().Client().CoreV1().Pods(NS()).Get(BgCtx(), pod, metav1.GetOptions{})
-	}, func(p *corev1.Pod) bool {
-		for _, ctr := range p.Status.ContainerStatuses {
-			if ctr.Started == nil || !*ctr.Started {
-				return false
-			}
+	// _, err := WaitTill(func() (*corev1.Pod, error) {
+	// 	return Kube().Client().CoreV1().Pods(NS()).Get(BgCtx(), pod, metav1.GetOptions{})
+	// }, func(p *corev1.Pod) bool {
+	// 	for _, ctr := range p.Status.ContainerStatuses {
+	// 		if ctr.Started == nil || !*ctr.Started {
+	// 			return false
+	// 		}
+	// 	}
+	// 	return true
+	// }, 48, 200*time.Millisecond)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	backOffStart := 200 * time.Millisecond
+	for range 24 {
+		logger, err := Kube().Client().CoreV1().Pods(NS()).GetLogs(pod, &corev1.PodLogOptions{
+			Follow: true,
+		}).Stream(BgCtx())
+		if strings.Contains(err.Error(), "ContainerCreating") {
+			time.Sleep(backOffStart)
+			backOffStart = expCoolDown(backOffStart, 8*time.Second)
+			continue
 		}
-		return true
-	}, 48, 200*time.Millisecond)
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+		return logger, nil
 	}
-
-	return Kube().Client().CoreV1().Pods(NS()).GetLogs(pod, &corev1.PodLogOptions{
-		Follow: true,
-	}).Stream(BgCtx())
+	return nil, fmt.Errorf("backoff limit reached waiting for pod %s to quit ContainerCreating", pod)
 }
 
 func JobSuccessOrNot(job string) (bool, error) {
